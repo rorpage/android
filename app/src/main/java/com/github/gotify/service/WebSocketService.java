@@ -296,7 +296,7 @@ public class WebSocketService extends Service {
 
     private void handleOpenAppTask(Map<String, Object> extras) {
         if (!extras.containsKey("task_data")) {
-            throw new IllegalArgumentException("Extras does not contain 'task_data'");
+            Log.e("Extras does not contain 'task_data'");
         }
 
         String taskData = (String) extras.get("task_data");
