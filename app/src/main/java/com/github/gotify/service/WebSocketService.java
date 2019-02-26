@@ -9,6 +9,7 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.graphics.Color;
 import android.net.ConnectivityManager;
+import android.net.Uri;
 import android.os.Build;
 import android.os.IBinder;
 import androidx.annotation.Nullable;
@@ -27,6 +28,7 @@ import com.github.gotify.log.Log;
 import com.github.gotify.log.UncaughtExceptionHandler;
 import com.github.gotify.messages.MessagesActivity;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -167,9 +169,16 @@ public class WebSocketService extends Service {
         if (lastReceivedMessage.get() < message.getId()) {
             lastReceivedMessage.set(message.getId());
         }
+
         broadcast(message);
-        showNotification(
-                message.getId(), message.getTitle(), message.getMessage(), message.getPriority());
+
+        final Map<String, Object> messageExtras = message.getExtras();
+        if (messageExtras != null && messageExtras.size() > 0) {
+            processExtras(messageExtras);
+        } else {
+            showNotification(
+                    message.getId(), message.getTitle(), message.getMessage(), message.getPriority());
+        }
     }
 
     private void broadcast(Message message) {
@@ -267,5 +276,35 @@ public class WebSocketService extends Service {
         NotificationManager notificationManager =
                 (NotificationManager) this.getSystemService(Context.NOTIFICATION_SERVICE);
         notificationManager.notify(-5, b.build());
+    }
+
+    private void processExtras(Map<String, Object> extras) {
+        if (extras.containsKey("url")) {
+            final String url = (String) extras.get("url");
+            Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(intent);
+        } else if (extras.containsKey("task")) {
+            final String task = ((String) extras.get("task")).toLowerCase();
+            switch (task) {
+                case "openapp":
+                    handleOpenAppTask(extras);
+                    break;
+            }
+        }
+    }
+
+    private void handleOpenAppTask(Map<String, Object> extras) {
+        if (!extras.containsKey("task_data")) {
+            throw new IllegalArgumentException("Extras does not contain 'task_data'");
+        }
+
+        String taskData = (String) extras.get("task_data");
+        Intent launchIntent = getPackageManager().getLaunchIntentForPackage(taskData);
+        if (launchIntent != null) {
+            startActivity(launchIntent);
+        } else {
+            Log.e("Package not found");
+        }
     }
 }
